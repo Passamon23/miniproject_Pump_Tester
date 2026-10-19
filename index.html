@@ -501,10 +501,9 @@
             updateDisplayValues(currentRange);
 
             // ========================================================
-            // 🔥 การคำนวณที่ตรงตามสูตรในเอกสารของคุณ 100%:
-            // 1. Flow Rate (Q) = Q_max * k (ค่าสูงสุดเท่ากันทุกขนาดท่อตามที่กรอก)
-            // 2. Pressure (P) = [P_max - ((P_max - P_min) * k^2)] / C_pipe 
-            //    (โดย C_pipe: ท่อ 3" = 1.00, ท่อ 4" = 1.15, ท่อ 6" = 1.35 ตามสูตรเป๊ะ)
+            // 🔥 สูตรคำนวณที่ถูกต้อง:
+            // 1. Flow Rate (Q) = Q_max * k * C_pipe (คูณ C_pipe ตามขนาดท่อ: 3"=1.00, 4"=1.15, 6"=1.35)
+            // 2. Pressure (P) = [P_max - ((P_max - P_min) * k^2)] / C_pipe (หาร C_pipe ตามขนาดท่อ)
             // ========================================================
             let rawFlow = document.getElementById('pumpFlow').value;
             let rawCurrent = document.getElementById('inputCurrent').value;
@@ -514,15 +513,15 @@
 
             let k = currentRange / 100.0;                  // สัดส่วน k
             
-            // C_pipe กำหนดตามขนาดท่อที่ผู้ใช้เลือกใช้งานจริง
+            // กำหนดค่า C_pipe ตามขนาดท่อที่เลือก
             let C_pipe = 1.00;
             if (activePipe === "4") C_pipe = 1.15;
             if (activePipe === "6") C_pipe = 1.35;
 
-            // --- 1. คำนวณ Flow Rate (Q) ---
-            let flowVal = (Q_max * k).toFixed(2);
+            // --- 1. คำนวณ Flow Rate (Q) คูณด้วย C_pipe ---
+            let flowVal = (Q_max * k * C_pipe).toFixed(2);
 
-            // --- 2. คำนวณ Pressure (P) ตามสูตรเป๊ะ ---
+            // --- 2. คำนวณ Pressure (P) หารด้วย C_pipe ---
             let P_max = 3.20;  // bar 
             let P_min = 1.50;  // bar 
             let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
