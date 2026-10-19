@@ -501,32 +501,33 @@
             updateDisplayValues(currentRange);
 
             // ========================================================
-            // 🔥 หลักการคำนวณที่ถูกต้องสมบูรณ์แบบ:
-            // 1. Flow (Q): ยึดตามค่าที่กรอกตรงๆ (Q_max * k) ทุกขนาดท่อเท่ากัน
-            // 2. Pressure (P): แปรผกผันตามขนาดท่อ C_pipe (ท่อใหญ่ แรงดันลดลงอย่างสมเหตุสมผล)
+            // 🔥 การคำนวณที่ตรงตามสูตรในเอกสารของคุณ 100%:
+            // 1. Flow Rate (Q) = Q_max * k (ค่าสูงสุดเท่ากันทุกขนาดท่อตามที่กรอก)
+            // 2. Pressure (P) = [P_max - ((P_max - P_min) * k^2)] / C_pipe 
+            //    (โดย C_pipe: ท่อ 3" = 1.00, ท่อ 4" = 1.15, ท่อ 6" = 1.35 ตามสูตรเป๊ะ)
             // ========================================================
             let rawFlow = document.getElementById('pumpFlow').value;
             let rawCurrent = document.getElementById('inputCurrent').value;
 
-            let Q_max = parseFloat(rawFlow) || 15.00;     // Q_max จากช่องกรอก
+            let Q_max = parseFloat(rawFlow) || 15.00;     // ดึงค่า Flow จาก PUMP DETAIL
             let A_rated = parseFloat(rawCurrent) || 9.60;  // กระแสพิกัด
 
-            let k = currentRange / 100.0;                  
+            let k = currentRange / 100.0;                  // สัดส่วน k
             
-            // C_pipe ตามขนาดท่อ: 3" = 1.00, 4" = 1.15, 6" = 1.35
+            // C_pipe กำหนดตามขนาดท่อที่ผู้ใช้เลือกใช้งานจริง
             let C_pipe = 1.00;
             if (activePipe === "4") C_pipe = 1.15;
             if (activePipe === "6") C_pipe = 1.35;
 
             // --- 1. คำนวณ Flow Rate (Q) ---
-            // Q = Q_max * k (ค่าสูงสุดเท่ากันทุกขนาดท่อตามที่คุณกรอก)
             let flowVal = (Q_max * k).toFixed(2);
 
-            // --- 2. คำนวณ Pressure (P) แบบแปรผกผันกับขนาดท่อ (หารด้วย C_pipe) ---
+            // --- 2. คำนวณ Pressure (P) ตามสูตรเป๊ะ ---
             let P_max = 3.20;  // bar 
             let P_min = 1.50;  // bar 
             let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
 
+            // แสดงผลลงในช่องหน้าจอของท่อที่ active อยู่
             document.getElementById(`flow${activePipe}`).innerText = flowVal;
             document.getElementById(`press${activePipe}`).innerText = pressVal;
 
