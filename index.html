@@ -487,7 +487,7 @@
             let activePipe = document.getElementById('pipeSize').value;
             let hp = document.getElementById('mdbHp').value;
             let range = document.getElementById('testRange').value;
-            alert(`[APPLY สำเร็จ] บันทึกค่าขนาดท่อ : ${activePipe} นิ้ว, MDB HP : ${hp}, ช่วงทดสอบ: ${range}%`);
+            alert(`[APPLY สำเร็จ] บันทึกค่าขนาดท่อ : ${activePipe} นิ้ว , MDB HP : ${hp}, ช่วงทดสอบ : ${range}%`);
         }
 
         function executeTestStep(currentRange) {
@@ -543,7 +543,7 @@
                 // ช่วงกระชาก 2 วินาทีแรกเมื่อกด START
                 let M_start = 6;
                 let A_start = A_rated * M_start; 
-                let PF_start = 0.50;
+                let PF_start = 0.85;
                 let kW_start = (Volt * A_start * PF_start) / 1000;
 
                 currentVal = A_start.toFixed(2);
