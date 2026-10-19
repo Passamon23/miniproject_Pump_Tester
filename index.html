@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Marine Pump Performance Tester</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #0b131e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .scada-container {
+            position: relative;
+            width: 100vw;          
+            height: 100vh;         
+            background-image: url('scada_bg.svg');
+            background-size: 100% 100%; 
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .scada-input {
+            position: absolute;
+            background: white;
+            border: 1px solid #999;
+            border-radius: 4px;
+            font-size: 13px;
+            padding-left: 5px;
+            box-sizing: border-box;
+        }
+
+        /* สีหน้าจอเมื่อวาล์วเปิด (ON) */
+        .valve-on {
+            background-color: #003b10 !important;
+            color: #46e291 !important;
+            border: 1px solid #02de53 !important;
+        }
+
+        /* สีหน้าจอเมื่อวาล์วปิด (OFF) */
+        .valve-off {
+            background-color: #510101e3 !important;
+            color: #f83a3a !important;
+            border: 1px solid #ec0b0b !important;
+        }
+
+        /* --- PUMP DETAIL --- */
+        .input-brand { top: 518px; left: 265px; width: 157px; height: 26px; }
+        .input-voltage { top: 555px; left: 265px; width: 157px; height: 26px; background-color: #f0f0f0; font-weight: bold; }
+        .input-hp { top: 595px; left: 265px; width: 157px; height: 26px; }
+        .input-flow { top: 633px; left: 265px; width: 157px; height: 26px; }
+        .input-remark { top: 674px; left: 265px; width: 410px; height: 26px; }
+
+        .input-weight { top: 515px; left: 645px; width: 103px; height: 25px; }
+        .input-current { top: 556px; left: 645px; width: 103px; height: 25px; }
+        .input-freq { top: 595px; left: 645px; width: 103px; height: 26px; }
+        .input-rpm { top: 635px; left: 645px; width: 103px; height: 26px; }
+
+        /* --- MDB STATUS --- */
+        .hp-dropdown { top: 176px; left: 1005px; width: 102px; height: 27px; }
+        .voltage-input { top: 215px; left: 1005px; width: 102px; height: 26px; background-color: #f0f0f0; font-weight: bold; }
+
+        /* --- TESTING CONDITION --- */
+        .range-dropdown { top: 510px; left: 1080px; width: 55px; height: 23px; }
+        .resolution-dropdown { top: 550px; left: 1080px; width: 55px; height: 26px; }
+        .timer-dropdown { top: 590px; left: 1080px; width: 55px; height: 27px; }
+        .pipe-dropdown { top: 637px; left: 1080px; width: 55px; height: 27px; }
+
+        /* --- CONTROL BUTTONS --- */
+        .btn-apply { position: absolute; top: 679.3px; left: 930px; width: 175px; height: 38px; cursor: pointer; background: #e0e0e0; border: 1px solid #999; font-weight: bold; border-radius: 4px; }
+        .btn-start { position: absolute; top: 465px; left: 1205px; width: 190px; height: 77px; cursor: pointer; background: #d4edda; border: 2px solid #28a745; font-size: 16px; font-weight: bold; border-radius: 6px; }
+        .btn-stop { position: absolute; top: 560px; left: 1205px; width: 194px; height: 78px; cursor: pointer; background: #f8d7da; border: 2px solid #dc3545; font-size: 16px; font-weight: bold; border-radius: 6px; }
+        .btn-exit { position: absolute; top: 660px; left: 1203px; width: 190px; height: 60px; cursor: pointer; background: #d1ecf1; border: 2px solid #17a2b8; font-size: 14px; font-weight: bold; border-radius: 6px; }
+
+        /* ปุ่มเปิดหน้าต่างจำลอง PLC (วางไว้มุมบนขวาข้าง Simulation Active) */
+        .btn-plc-status {
+            position: absolute;
+            top: 8px;
+            left: 1100px;
+            background: #ffc107;
+            border: 2px solid #e0a800;
+            color: #000;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        .btn-plc-status:hover { background: #e0a800; }
+
+        .btn-clicked {
+            background-color: #d3d3d3 !important;
+            border-color: #888 !important;
+            color: #555 !important;
+        }
+
+        /* --- หน้าจอแสดงผลจำลอง (SCADA Screen Displays Over SVG) --- */
+        .scada-display {
+            position: absolute;
+            color: #14f1c5;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .disp-valve-6  { top: 166px; left: 276px; width: 103px; height: 45px; }
+        .disp-flow-6   { top: 168px; left: 430px; width: 95px; height: 42px; }
+        .disp-press-6  { top: 170px; left: 567px; width: 95px; height: 42px; }
+        .disp-open-6   { top: 170px; left: 705px; width: 95px; height: 42px; }
+
+        .disp-valve-4  { top: 237px; left: 277px; width: 103px; height: 45px; }
+        .disp-flow-4   { top: 237px; left: 430px; width: 95px; height: 42px; }
+        .disp-press-4  { top: 238px; left: 567px; width: 95px; height: 42px; }
+        .disp-open-4   { top: 237px; left: 705px; width: 95px; height: 42px; }
+
+        .disp-valve-3  { top: 301px; left: 277px; width: 103px; height: 45px; }
+        .disp-flow-3   { top: 301px; left: 430px; width: 95px; height: 42px; }
+        .disp-press-3  { top: 302px; left: 567px; width: 95px; height: 42px; }
+        .disp-open-3   { top: 301px; left: 705px; width: 95px; height: 42px; }
+
+        .pm-v  { top: 300px; left: 988px; width: 70px; height: 24px; }
+        .pm-hz { top: 301px; left: 1096px; width: 70px; height: 24px; }
+        .pm-a  { top: 301px; left: 1200px; width: 70px; height: 24px; }
+        .pm-kw { top: 301px; left: 1312px; width: 70px; height: 24px; }
+
+        /* --- เอฟเฟกต์น้ำไหล --- */
+        @keyframes flowH { 0% { background-position: 0 0; } 100% { background-position: 40px 0; } }
+        @keyframes flowV-Up { 0% { background-position: 0 40px; } 100% { background-position: 0 0; } }
+        @keyframes flowV-Down { 0% { background-position: 0 0; } 100% { background-position: 0 40px; } }
+
+        .flow-pipe { position: absolute; pointer-events: none; display: none; z-index: 2; }
+        .pump-outlet-pipe { top: 290px; left: 235px; width: 20px; height: 10px; background: linear-gradient(90deg, rgba(20,241,197,0.2) 0%, #14f1c5 50%, rgba(20,241,197,0.2) 100%); background-size: 40px 100%; animation: flowH 0.7s linear infinite; border-radius: 3px; box-shadow: 0 0 6px #14f1c5; }
+        .right-outlet-pipe { top: 292px; left: 848px; width: 18px; height: 7px; background: linear-gradient(90deg, rgba(20,241,197,0.2) 0%, #14f1c5 50%, rgba(20,241,197,0.2) 100%); background-size: 40px 100%; animation: flowH 0.7s linear infinite; border-radius: 3px; box-shadow: 0 0 6px #14f1c5; }
+        .main-vertical-pipe { left: 247px; width: 6px; border-radius: 3px; box-shadow: 0 0 6px #14f1c5; }
+        .right-vertical-pipe { left: 852px; width: 6px; border-radius: 3px; box-shadow: 0 0 6px #14f1c5; }
+        .main-v-up { background: linear-gradient(180deg, rgba(20,241,197,0.2) 0%, #14f1c5 50%, rgba(20,241,197,0.2) 100%); background-size: 100% 40px; animation: flowV-Up 0.7s linear infinite; }
+        .main-v-down { background: linear-gradient(180deg, rgba(20,241,197,0.2) 0%, #14f1c5 50%, rgba(20,241,197,0.2) 100%); background-size: 100% 40px; animation: flowV-Down 0.7s linear infinite; }
+        .left-v-6 { top: 225px; height: 67px; } .left-v-3 { top: 290px; height: 67px; }
+        .right-v-6 { top: 225px; height: 67px; } .right-v-3 { top: 292px; height: 66px; }
+        .pipe-h-6 { top: 225px; left: 245px; width: 612px; height: 5px; }
+        .pipe-h-4 { top: 292px; left: 235px; width: 630px; height: 6px; }
+        .pipe-h-3 { top: 358px; left: 248px; width: 610px; height: 4px; }
+        .pipe-h-flowing { background: linear-gradient(90deg, rgba(20,241,197,0.2) 0%, #14f1c5 50%, rgba(20,241,197,0.2) 100%); background-size: 40px 100%; animation: flowH 0.7s linear infinite; border-radius: 3px; box-shadow: 0 0 6px #14f1c5; }
+
+        /* --- Modal Popup สำหรับหน้าต่างจำลอง PLC --- */
+        .plc-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .plc-modal-content {
+            background: #111b2b;
+            border: 2px solid #14f1c5;
+            width: 750px;
+            padding: 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-family: monospace;
+            box-shadow: 0 0 20px rgba(20, 241, 197, 0.4);
+        }
+        .plc-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334e68;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .plc-close-btn {
+            background: #dc3545;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        .plc-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        .plc-table th, .plc-table td {
+            border: 1px solid #334e68;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .plc-table th { background: #1f2937; color: #14f1c5; }
+        .ladder-box {
+            background: #0b131e;
+            border: 1px dashed #14f1c5;
+            padding: 10px;
+            font-size: 12px;
+            color: #46e291;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scada-container">
+        <!-- ปุ่มกดเปิดหน้าต่าง PLC Status -->
+        <button class="btn-plc-status" onclick="openPlcModal()">⚙️ PLC STATUS & REGISTERS</button>
+
+        <!-- PUMP DETAIL Inputs -->
+        <input type="text" class="scada-input input-brand" id="brandInput" placeholder="Input brand...">
+        <input type="text" class="scada-input input-voltage" id="inputVoltage" value="220 V" readonly>
+        <input type="text" class="scada-input input-hp" id="pumpHp" placeholder="Enter HP value...">
+        <input type="text" class="scada-input input-flow" id="pumpFlow" placeholder="Enter Flow Rate...">
+        <input type="text" class="scada-input input-remark" id="inputRemark" placeholder="Enter remark here...">
+
+        <input type="text" class="scada-input input-weight" id="inputWeight" placeholder="Enter weight...">
+        <input type="text" class="scada-input input-current" id="inputCurrent" placeholder="Enter current...">
+        <input type="text" class="scada-input input-freq" id="inputFreq" placeholder="Enter frequency...">
+        <input type="text" class="scada-input input-rpm" id="inputRpm" placeholder="Enter RPM...">
+
+        <!-- MDB STATUS -->
+        <select class="scada-input hp-dropdown" id="mdbHp">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+        </select>
+        <input type="text" class="scada-input voltage-input" value="220 V" readonly>
+
+        <!-- TESTING CONDITION -->
+        <select class="scada-input range-dropdown" id="testRange">
+            <option value="100">100</option>
+            <option value="90">90</option>
+            <option value="80">80</option>
+            <option value="70">70</option>
+            <option value="60">60</option>
+            <option value="50">50</option>
+            <option value="40">40</option>
+            <option value="30">30</option>
+            <option value="20">20</option>
+            <option value="10">10</option>
+            <option value="0">0</option>
+        </select>
+
+        <select class="scada-input resolution-dropdown" id="testRes">
+            <option value="10">10</option>
+            <option value="5">5</option>
+        </select>
+
+        <select class="scada-input timer-dropdown" id="testTimer">
+            <option value="5">5</option>
+            <option value="3">3</option>
+        </select>
+
+        <select class="scada-input pipe-dropdown" id="pipeSize">
+            <option value="6" selected>6</option>
+            <option value="4">4</option>
+            <option value="3">3</option>
+        </select>
+
+        <!-- Buttons -->
+        <button class="btn-apply" id="applyBtn" onclick="applySettings()">APPLY</button>
+        <button class="btn-start" id="startBtn" onclick="startTest()">START TEST</button>
+        <button class="btn-stop" id="stopBtn" onclick="stopTest()">STOP TEST</button>
+        <button class="btn-exit" id="exitBtn" onclick="exitProgram()">EXIT PROGRAM</button>
+
+        <!-- Displays (6", 4", 3") -->
+        <div class="scada-display disp-flow-6" id="flow6">—</div>
+        <div class="scada-display disp-press-6" id="press6">—</div>
+        <div class="scada-display disp-valve-6" id="valve6">—</div>
+        <div class="scada-display disp-open-6" id="open6">—</div>
+
+        <div class="scada-display disp-flow-4" id="flow4">—</div>
+        <div class="scada-display disp-press-4" id="press4">—</div>
+        <div class="scada-display disp-valve-4" id="valve4">—</div>
+        <div class="scada-display disp-open-4" id="open4">—</div>
+
+        <div class="scada-display disp-flow-3" id="flow3">—</div>
+        <div class="scada-display disp-press-3" id="press3">—</div>
+        <div class="scada-display disp-valve-3" id="valve3">—</div>
+        <div class="scada-display disp-open-3" id="open3">—</div>
+
+        <!-- Pipes Animation -->
+        <div class="flow-pipe pump-outlet-pipe" id="pumpOutletPipe"></div>
+        <div class="flow-pipe right-outlet-pipe" id="rightOutletPipe"></div>
+        <div class="flow-pipe main-vertical-pipe" id="mainFlowPipe"></div>
+        <div class="flow-pipe right-vertical-pipe" id="rightFlowPipe"></div>
+        <div class="flow-pipe pipe-h-6" id="pipeFlow6"></div>
+        <div class="flow-pipe pipe-h-4" id="pipeFlow4"></div>
+        <div class="flow-pipe pipe-h-3" id="pipeFlow3"></div>
+
+        <!-- Power Meter -->
+        <div class="scada-display pm-v" id="pmV">220</div>
+        <div class="scada-display pm-hz" id="pmHz">—</div>
+        <div class="scada-display pm-a" id="pmA">—</div>
+        <div class="scada-display pm-kw" id="pmKw">—</div>
+    </div>
+
+    <!-- หน้าต่างจำลอง PLC Memory & Ladder Logic (Modal) -->
+    <div class="plc-modal" id="plcModal">
+        <div class="plc-modal-content">
+            <div class="plc-modal-header">
+                <h3>🖥️ PLC Simulation Core & Memory Registers</h3>
+                <button class="plc-close-btn" onclick="closePlcModal()">✕ CLOSE</button>
+            </div>
+            <p style="font-size:12px; color:#a0aec0; margin-top:0;">เชื่อมต่อผ่านโปรโตคอลจำลอง Modbus/TCP | สถานะการทำงาน: <span id="plcStatusText" style="color:#46e291; font-weight:bold;">STANDBY</span></p>
+            
+            <table class="plc-table">
+                <thead>
+                    <tr>
+                        <th>Register / Address</th>
+                        <th>Parameter Name</th>
+                        <th>Current Value (Real-time)</th>
+                        <th>Data Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>M0.0</code></td>
+                        <td>Start / Stop Command Bit</td>
+                        <td id="regM00" style="color:#ffc107;">FALSE</td>
+                        <td>BOOL</td>
+                    </tr>
+                    <tr>
+                        <td><code>VW100</code></td>
+                        <td>Selected Pipe Size</td>
+                        <td id="regVW100">6 Inch</td>
+                        <td>INT</td>
+                    </tr>
+                    <tr>
+                        <td><code>VW102</code></td>
+                        <td>Valve Opening Ratio ($k$)</td>
+                        <td id="regVW102">0 %</td>
+                        <td>INT</td>
+                    </tr>
+                    <tr>
+                        <td><code>VW104</code></td>
+                        <td>Calculated Flow Rate ($Q$)</td>
+                        <td id="regVW104">—</td>
+                        <td>REAL</td>
+                    </tr>
+                    <tr>
+                        <td><code>VW106</code></td>
+                        <td>Calculated Pressure ($P$)</td>
+                        <td id="regVW106">—</td>
+                        <td>REAL</td>
+                    </tr>
+                    <tr>
+                        <td><code>VW108</code></td>
+                        <td>Motor Current Output ($A$)</td>
+                        <td id="regVW108">—</td>
+                        <td>REAL</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p style="margin-bottom: 5px; font-weight: bold; color: #14f1c5;">⚡ PLC Ladder Logic Execution Monitor:</p>
+            <div class="ladder-box" id="ladderLogBox">
+                [RUNG 001] --[ START_BTN ]---( LATCH MOTOR_RUN )---<br>
+                [RUNG 002] --[ MOTOR_RUN ]---[ TIMER_STEP ]---( COMPUTE PUMP CURVE )---<br>
+                [STATUS] Waiting for START command from SCADA HMI...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testInterval = null; 
+
+        // เปิด/ปิด หน้าต่าง Modal PLC
+        function openPlcModal() { document.getElementById('plcModal').style.display = 'flex'; }
+        function closePlcModal() { document.getElementById('plcModal').style.display = 'none'; }
+
+        // อัปเดตตาราง Registers ของ PLC แบบ Real-time
+        function updatePlcRegisters(isRunning, currentRange, flow, press, current) {
+            let activePipe = document.getElementById('pipeSize').value;
+            document.getElementById('regM00').innerText = isRunning ? "TRUE (RUN)" : "FALSE (STOP)";
+            document.getElementById('regM00').style.color = isRunning ? "#46e291" : "#ffc107";
+            document.getElementById('regVW100').innerText = activePipe + " Inch";
+            document.getElementById('regVW102').innerText = currentRange + " %";
+            document.getElementById('regVW104').innerText = flow !== "-" ? flow + " m³/h" : "0.00";
+            document.getElementById('regVW106').innerText = press !== "-" ? press + " bar" : "0.00";
+            document.getElementById('regVW108').innerText = current !== undefined ? current + " A" : "0.0";
+            
+            document.getElementById('plcStatusText').innerText = isRunning ? "RUNNING (ACTIVE)" : "STANDBY";
+
+            let ladderBox = document.getElementById('ladderLogBox');
+            if(isRunning) {
+                ladderBox.innerHTML = `
+                    [RUNG 001] --[ ✔ START_BTN ]===<b>( LATCH MOTOR_RUN ACTIVE )</b>===<br>
+                    [RUNG 002] --[ ✔ MOTOR_RUN ]---[ ⏱ TIMER ACTIVE ]---<b>( COMPUTING Q=${flow}, P=${press} )</b><br>
+                    [PLC LOG] Modbus TCP Writing to VW104 & VW106 Success.
+                `;
+            } else {
+                ladderBox.innerHTML = `
+                    [RUNG 001] --[ START_BTN ]---( LATCH MOTOR_RUN )---<br>
+                    [RUNG 002] --[ MOTOR_RUN ]---[ TIMER_STEP ]---( COMPUTE PUMP CURVE )---<br>
+                    [STATUS] System stopped. Waiting for user command...
+                `;
+            }
+        }
+
+        function updateDisplayValues(currentRange) {
+            let selectedPipe = document.getElementById('pipeSize').value;
+            let rangeVal = currentRange + "%";
+            let outletPipe = document.getElementById('pumpOutletPipe');
+            let rightOutletPipe = document.getElementById('rightOutletPipe');
+            let mainPipe = document.getElementById('mainFlowPipe');
+            let rightPipe = document.getElementById('rightFlowPipe');
+
+            outletPipe.style.display = 'block';
+            rightOutletPipe.style.display = 'block';
+
+            if (selectedPipe === "6") {
+                mainPipe.style.display = 'block';
+                mainPipe.className = "flow-pipe main-vertical-pipe main-v-up left-v-6";
+                rightPipe.style.display = 'block';
+                rightPipe.className = "flow-pipe right-vertical-pipe main-v-down right-v-6";
+            } else if (selectedPipe === "3") {
+                mainPipe.style.display = 'block';
+                mainPipe.className = "flow-pipe main-vertical-pipe main-v-down left-v-3";
+                rightPipe.style.display = 'block';
+                rightPipe.className = "flow-pipe right-vertical-pipe main-v-up right-v-3";
+            } else {
+                mainPipe.style.display = 'none';
+                rightPipe.style.display = 'none';
+            }
+
+            ['6', '4', '3'].forEach(size => {
+                let vScreen = document.getElementById(`valve${size}`);
+                let openScreen = document.getElementById(`open${size}`);
+                let pipeFlowElem = document.getElementById(`pipeFlow${size}`);
+
+                if (size === selectedPipe) {
+                    vScreen.innerText = "ON";
+                    vScreen.className = "scada-display disp-valve-" + size + " valve-on";
+                    pipeFlowElem.style.display = 'block';
+                    pipeFlowElem.classList.add('pipe-h-flowing');
+                } else {
+                    vScreen.innerText = "OFF";
+                    vScreen.className = "scada-display disp-valve-" + size + " valve-off";
+                    pipeFlowElem.style.display = 'none';
+                    pipeFlowElem.classList.remove('pipe-h-flowing');
+                }
+
+                if (size === selectedPipe) {
+                    openScreen.innerText = rangeVal;
+                } else {
+                    openScreen.innerText = "-";
+                }
+            });
+        }
+
+        document.getElementById('pipeSize').addEventListener('change', () => {
+            updateDisplayValues(document.getElementById('testRange').value);
+        });
+        document.getElementById('testRange').addEventListener('change', () => {
+            updateDisplayValues(document.getElementById('testRange').value);
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('pumpOutletPipe').style.display = 'none';
+            document.getElementById('rightOutletPipe').style.display = 'none';
+            document.getElementById('mainFlowPipe').style.display = 'none';
+            document.getElementById('rightFlowPipe').style.display = 'none';
+            ['6', '4', '3'].forEach(size => {
+                let vScreen = document.getElementById(`valve${size}`);
+                vScreen.innerText = "OFF";
+                vScreen.className = "scada-display disp-valve-" + size + " valve-off";
+            });
+            updatePlcRegisters(false, 0, "-", "-", 0);
+        });
+
+        function applySettings() {
+            let activePipe = document.getElementById('pipeSize').value;
+            let hp = document.getElementById('mdbHp').value;
+            let range = document.getElementById('testRange').value;
+            alert(`[APPLY สำเร็จ] บันทึกค่าขนาดท่อ : ${activePipe} นิ้ว, MDB HP : ${hp}, ช่วงทดสอบ: ${range}%`);
+        }
+
+        function executeTestStep(currentRange) {
+            let hp = parseFloat(document.getElementById('mdbHp').value);
+            let activePipe = document.getElementById('pipeSize').value; 
+
+            ['6', '4', '3'].forEach(size => {
+                document.getElementById(`flow${size}`).innerText = "-";
+                document.getElementById(`press${size}`).innerText = "-";
+            });
+
+            updateDisplayValues(currentRange);
+
+            let k = currentRange / 100.0;
+            let pipeNum = parseInt(activePipe);
+            let qMax = (pipeNum * 1.5) * Math.sqrt(hp); 
+            let pMax = hp * 0.4 + (7 - pipeNum) * 0.3;     
+            let pMin = 0.60;                                             
+
+            let flowVal = (qMax * k).toFixed(2);
+            let pressVal = (pMax - ((pMax - pMin) * (k * k))).toFixed(2);
+
+            document.getElementById(`flow${activePipe}`).innerText = flowVal;
+            document.getElementById(`press${activePipe}`).innerText = pressVal;
+
+            let voltVal = "220";
+            let hzVal = "50.0";
+            let currentVal = (hp * 2.5 * (0.5 + 0.5 * k)).toFixed(1);
+            let kwVal = ((voltVal * currentVal * 0.85) / 1000).toFixed(2);
+
+            document.getElementById('pmV').innerText = voltVal;
+            document.getElementById('pmHz').innerText = hzVal;
+            document.getElementById('pmA').innerText = currentVal;
+            document.getElementById('pmKw').innerText = kwVal;
+
+            // อัปเดตข้อมูลลงตาราง PLC Register ทันที
+            updatePlcRegisters(true, currentRange, flowVal, pressVal, currentVal);
+        }
+
+        function startTest() {
+            let pumpInputs = [
+                { id: 'brandInput', label: 'Brand' },
+                { id: 'pumpHp', label: 'HP Value' },
+                { id: 'pumpFlow', label: 'Flow Rate' },
+                { id: 'inputWeight', label: 'Weight' },
+                { id: 'inputCurrent', label: 'Current' },
+                { id: 'inputFreq', label: 'Frequency' },
+                { id: 'inputRpm', label: 'RPM' }
+            ];
+
+            for (let input of pumpInputs) {
+                let elem = document.getElementById(input.id);
+                if (!elem || elem.value.trim() === "") {
+                    alert(`กรุณากรอกข้อมูลในส่วน PUMP DETAIL ให้ครบถ้วนก่อนเริ่มการทดสอบ!`);
+                    if (elem) elem.focus();
+                    return; 
+                }
+            }
+
+            let remarkElem = document.getElementById('inputRemark');
+            if (!remarkElem || remarkElem.value.trim() === "") {
+                alert(`กรุณากรอกข้อมูล Remark (หากไม่มีข้อมูลให้ใส่ - ) !`);
+                if (remarkElem) remarkElem.focus();
+                return; 
+            }
+
+            if (testInterval) { clearInterval(testInterval); }
+
+            document.getElementById('startBtn').classList.add('btn-clicked');
+            document.getElementById('stopBtn').classList.remove('btn-clicked');
+
+            let startRange = parseInt(document.getElementById('testRange').value);
+            let resolution = parseInt(document.getElementById('testRes').value);
+            let timerSec = parseInt(document.getElementById('testTimer').value) * 1000; 
+
+            let currentRange = startRange;
+            executeTestStep(currentRange);
+
+            testInterval = setInterval(() => {
+                currentRange -= resolution;
+                if (currentRange < 0) { currentRange = 0; }
+
+                executeTestStep(currentRange);
+
+                if (currentRange <= 0) {
+                    clearInterval(testInterval);
+                    testInterval = null;
+                }
+            }, timerSec);
+        }
+
+        function stopTest() {
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+            }
+
+            document.getElementById('stopBtn').classList.add('btn-clicked');
+            document.getElementById('startBtn').classList.remove('btn-clicked');
+
+            document.getElementById('pumpOutletPipe').style.display = 'none';
+            document.getElementById('rightOutletPipe').style.display = 'none';
+            document.getElementById('mainFlowPipe').style.display = 'none';
+            document.getElementById('rightFlowPipe').style.display = 'none';
+            ['6', '4', '3'].forEach(size => {
+                document.getElementById(`flow${size}`).innerText = "-";
+                document.getElementById(`press${size}`).innerText = "-";
+                document.getElementById(`open${size}`).innerText = "-";
+                let pipeFlowElem = document.getElementById(`pipeFlow${size}`);
+                pipeFlowElem.style.display = 'none';
+                pipeFlowElem.classList.remove('pipe-h-flowing');
+            });
+
+            document.getElementById('pmV').innerText = "220";
+            document.getElementById('pmHz').innerText = "-";
+            document.getElementById('pmA').innerText = "-";
+            document.getElementById('pmKw').innerText = "-";
+
+            // อัปเดตสถานะ PLC กลับเป็น Standby
+            updatePlcRegisters(false, 0, "-", "-", 0);
+
+            alert('[STOP TEST] ระบบหยุดการทำงานแล้ว คุณสามารถเลือกเปลี่ยนขนาดท่อใหม่ กด APPLY และกด START TEST ได้เลยค่ะ/ครับ');
+        }
+
+        function exitProgram() {
+            if(confirm('คุณต้องการออกจากโปรแกรม SCADA ใช่หรือไม่?')) {
+                window.close();
+            }
+        }
+    </script>
+
+</body>
+</html>
