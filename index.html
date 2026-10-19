@@ -501,34 +501,31 @@
             updateDisplayValues(currentRange);
 
             // ========================================================
-            // 🔥 ปรับแก้การคำนวณ Flow และ Pressure ให้ตรงตามความจริง 100%
+            // 🔥 สูตรคำนวณมาตรฐานตรงตามที่คุณกำหนด 100%
             // ========================================================
             let rawFlow = document.getElementById('pumpFlow').value;
             let rawCurrent = document.getElementById('inputCurrent').value;
 
-            let Q_user = parseFloat(rawFlow) || 12.00;     // ดึงค่า Flow ที่ผู้ใช้กรอก (เช่น 12)
-            let A_rated = parseFloat(rawCurrent) || 9.60;  // ดึงค่ากระแสพิกัด
+            let Q_max = parseFloat(rawFlow) || 15.00;     // Q_max ดึงจากช่องกรอก Flow Rate
+            let A_rated = parseFloat(rawCurrent) || 9.60;  // กระแสพิกัด
 
-            let k = currentRange / 100.0;
+            let k = currentRange / 100.0;                  // k = Testing Range / 100
             
-            // C_pipe ตามขนาดท่อที่คุณกำหนด: 3" = 1.00, 4" = 1.15, 6" = 1.35
+            // C_pipe ตามขนาดท่อ: 3" = 1.00, 4" = 1.15, 6" = 1.35
             let C_pipe = 1.00;
             if (activePipe === "4") C_pipe = 1.15;
             if (activePipe === "6") C_pipe = 1.35;
 
             // --- 1. คำนวณ Flow Rate (Q) ---
-            // ให้ค่า Flow อิงจากค่าที่ผู้ใช้กรอก (Q_user) คูณอัตราส่วนวาล์ว (k) และสัดส่วนท่อ (C_pipe) อย่างตรงไปตรงมา
-            let flowVal = (Q_user * k * C_pipe).toFixed(2);
+            // Q = Q_max * k * C_pipe
+            let flowVal = (Q_max * k * C_pipe).toFixed(2);
 
             // --- 2. คำนวณ Pressure (P) ---
-            // กำหนดให้ P_max และ P_min แตกต่างกันอย่างสมจริงตามขนาด Flow และขนาดท่อ
-            let P_max = 3.50 + (Q_user * 0.05); // แรงดันสูงสุดแปรผันตามขนาด Flow ที่กรอก
-            let P_min = 1.20;                   // แรงดันต่ำสุดที่ปลายเปิด
-            
-            // สูตรคำนวณ Pressure ตามหลักไฮดรอลิกส์ที่คุณต้องการ
+            // P = [P_max - ((P_max - P_min) * k^2)] / C_pipe
+            let P_max = 3.20;  // bar (ค่ามาตรฐาน)
+            let P_min = 1.50;  // bar (ค่ามาตรฐาน)
             let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
 
-            // แสดงผลลงในหน้าจอของท่อที่เลือกใช้งานจริง
             document.getElementById(`flow${activePipe}`).innerText = flowVal;
             document.getElementById(`press${activePipe}`).innerText = pressVal;
 
@@ -551,7 +548,7 @@
                 currentVal = A_start.toFixed(2);
                 kwVal = kW_start.toFixed(2);
             } else {
-                // สภาวะปกติ
+                // สภาวะปกติ: A = A_no_load + [(A_rated - A_no_load) * k]
                 let A_normal = A_no_load + ((A_rated - A_no_load) * k);
                 let kW_normal = (Volt * A_normal * PF) / 1000;
 
@@ -659,7 +656,7 @@
 
             document.getElementById('pumpOutletPipe').style.display = 'none';
             document.getElementById('rightOutletPipe').style.display = 'none';
-            document.getElementById('mainFlowRatePipe').style.display = 'none';
+            document.getElementById('mainFlowPipe').style.display = 'none';
             document.getElementById('rightFlowPipe').style.display = 'none';
             ['6', '4', '3'].forEach(size => {
                 document.getElementById(`flow${size}`).innerText = "-";
