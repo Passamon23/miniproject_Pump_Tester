@@ -501,15 +501,17 @@
             updateDisplayValues(currentRange);
 
             // ========================================================
-            // 🔥 สูตรคำนวณมาตรฐานตรงตามที่คุณกำหนด 100%
+            // 🔥 หลักการคำนวณที่ถูกต้องสมบูรณ์แบบ:
+            // 1. Flow (Q): ยึดตามค่าที่กรอกตรงๆ (Q_max * k) ทุกขนาดท่อเท่ากัน
+            // 2. Pressure (P): แปรผกผันตามขนาดท่อ C_pipe (ท่อใหญ่ แรงดันลดลงอย่างสมเหตุสมผล)
             // ========================================================
             let rawFlow = document.getElementById('pumpFlow').value;
             let rawCurrent = document.getElementById('inputCurrent').value;
 
-            let Q_max = parseFloat(rawFlow) || 15.00;     // Q_max ดึงจากช่องกรอก Flow Rate
+            let Q_max = parseFloat(rawFlow) || 15.00;     // Q_max จากช่องกรอก
             let A_rated = parseFloat(rawCurrent) || 9.60;  // กระแสพิกัด
 
-            let k = currentRange / 100.0;                  // k = Testing Range / 100
+            let k = currentRange / 100.0;                  
             
             // C_pipe ตามขนาดท่อ: 3" = 1.00, 4" = 1.15, 6" = 1.35
             let C_pipe = 1.00;
@@ -517,13 +519,12 @@
             if (activePipe === "6") C_pipe = 1.35;
 
             // --- 1. คำนวณ Flow Rate (Q) ---
-            // Q = Q_max * k * C_pipe
-            let flowVal = (Q_max * k * C_pipe).toFixed(2);
+            // Q = Q_max * k (ค่าสูงสุดเท่ากันทุกขนาดท่อตามที่คุณกรอก)
+            let flowVal = (Q_max * k).toFixed(2);
 
-            // --- 2. คำนวณ Pressure (P) ---
-            // P = [P_max - ((P_max - P_min) * k^2)] / C_pipe
-            let P_max = 3.20;  // bar (ค่ามาตรฐาน)
-            let P_min = 1.50;  // bar (ค่ามาตรฐาน)
+            // --- 2. คำนวณ Pressure (P) แบบแปรผกผันกับขนาดท่อ (หารด้วย C_pipe) ---
+            let P_max = 3.20;  // bar 
+            let P_min = 1.50;  // bar 
             let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
 
             document.getElementById(`flow${activePipe}`).innerText = flowVal;
