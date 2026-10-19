@@ -375,6 +375,7 @@
 
     <script>
         let testInterval = null; 
+        let isStartingTransient = false;
 
         // เปิด/ปิด หน้าต่าง Modal PLC
         function openPlcModal() { document.getElementById('plcModal').style.display = 'flex'; }
@@ -488,7 +489,6 @@
         }
 
         function executeTestStep(currentRange) {
-            let hp = parseFloat(document.getElementById('mdbHp').value);
             let activePipe = document.getElementById('pipeSize').value; 
 
             ['6', '4', '3'].forEach(size => {
@@ -498,22 +498,48 @@
 
             updateDisplayValues(currentRange);
 
+            // --- ตัวแปรและค่าคงที่ใหม่ตามสูตรของคุณ ---
             let k = currentRange / 100.0;
-            let pipeNum = parseInt(activePipe);
-            let qMax = (pipeNum * 1.5) * Math.sqrt(hp); 
-            let pMax = hp * 0.4 + (7 - pipeNum) * 0.3;     
-            let pMin = 0.60;                                             
+            let C_pipe = 1.00;
+            if (activePipe === "4") C_pipe = 1.15;
+            if (activePipe === "6") C_pipe = 1.35;
 
-            let flowVal = (qMax * k).toFixed(2);
-            let pressVal = (pMax - ((pMax - pMin) * (k * k))).toFixed(2);
+            let Q_max = 15.00; // m³/h
+            let P_max = 3.20;  // bar
+            let P_min = 1.50;  // bar
+            let A_rated = 9.60; // A
+            let A_no_load = 5.76; // A (60% ของ A_rated)
+            let Volt = 220;    // V
+            let PF = 0.85;
+
+            // สูตรหลัก
+            let flowVal = (Q_max * k * C_pipe).toFixed(2);
+            let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
 
             document.getElementById(`flow${activePipe}`).innerText = flowVal;
             document.getElementById(`press${activePipe}`).innerText = pressVal;
 
             let voltVal = "220";
             let hzVal = "50.0";
-            let currentVal = (hp * 2.5 * (0.5 + 0.5 * k)).toFixed(1);
-            let kwVal = ((voltVal * currentVal * 0.85) / 1000).toFixed(2);
+            let currentVal, kwVal;
+
+            // เช็คว่าอยู่ในช่วงกระชาก 2 วินาทีแรกหรือไม่
+            if (isStartingTransient) {
+                let M_start = 6;
+                let A_start = A_rated * M_start; // 57.60 A
+                let PF_start = 0.50;
+                let kW_start = (Volt * A_start * PF_start) / 1000; // ~6.34 kW
+
+                currentVal = A_start.toFixed(2);
+                kwVal = kW_start.toFixed(2);
+            } else {
+                // สภาวะปกติ
+                let A_normal = A_no_load + ((A_rated - A_no_load) * k);
+                let kW_normal = (Volt * A_normal * PF) / 1000;
+
+                currentVal = A_normal.toFixed(2);
+                kwVal = kW_normal.toFixed(2);
+            }
 
             document.getElementById('pmV').innerText = voltVal;
             document.getElementById('pmHz').innerText = hzVal;
@@ -561,7 +587,18 @@
             let timerSec = parseInt(document.getElementById('testTimer').value) * 1000; 
 
             let currentRange = startRange;
+            
+            // เริ่มต้นเปิดโหมดกระชาก (Transient) เป็นเวลา 2 วินาทีแรก
+            isStartingTransient = true;
             executeTestStep(currentRange);
+
+            setTimeout(() => {
+                isStartingTransient = false;
+                // อัปเดตค่ากลับเป็นปกติหลังพ้น 2 วินาที
+                if (testInterval) {
+                    executeTestStep(currentRange);
+                }
+            }, 2000);
 
             testInterval = setInterval(() => {
                 currentRange -= resolution;
@@ -581,6 +618,7 @@
                 clearInterval(testInterval);
                 testInterval = null;
             }
+            isStartingTransient = false;
 
             document.getElementById('stopBtn').classList.add('btn-clicked');
             document.getElementById('startBtn').classList.remove('btn-clicked');
