@@ -501,16 +501,16 @@
             updateDisplayValues(currentRange);
 
             // ========================================================
-            // 🔥 DYNAMIC USER INPUTS (อ่านค่าตรงจากช่องกรอก PUMP DETAIL)
+            // 🔥 DYNAMIC USER INPUTS (ดึงค่าจากช่องกรอกตรงๆ แบบไร้เงื่อนไขขัดขวาง)
             // ========================================================
-            let userFlowInput = parseFloat(document.getElementById('pumpFlow').value);
-            let userCurrentInput = parseFloat(document.getElementById('inputCurrent').value);
+            let rawFlow = document.getElementById('pumpFlow').value;
+            let rawCurrent = document.getElementById('inputCurrent').value;
 
-            // ถ้ากรอกค่า ตัวแปรจะใช้ค่านั้นเลย (ถ้าไม่ได้กรอก หรือใส่ตัวอักษร จะใช้ค่าตั้งต้นให้อัตโนมัติเพื่อป้องกัน Error)
-            let Q_max = !isNaN(userFlowInput) ? userFlowInput : 15.00;     // Flow Rate สูงสุดจากผู้ใช้
-            let A_rated = !isNaN(userCurrentInput) ? userCurrentInput : 9.60; // กระแสไฟฟ้าพิกัดจากผู้ใช้
+            // แปลงค่าเป็นตัวเลขจริง (ถ้าช่องว่างหรือใส่ข้อความ จะมองเป็น 0 ชั่วคราว)
+            let Q_max = parseFloat(rawFlow) || 0;     
+            let A_rated = parseFloat(rawCurrent) || 0; 
 
-            let A_no_load = A_rated * 0.60; // 60% ของ A_rated
+            let A_no_load = A_rated * 0.60; // 60% ของ A_rated ที่ผู้ใช้กรอก
 
             let k = currentRange / 100.0;
             let C_pipe = 1.00;
@@ -522,7 +522,7 @@
             let Volt = 220;    // V
             let PF = 0.85;
 
-            // --- คำนวณ Flow Rate (Q) และ Pressure (P) ---
+            // --- คำนวณ Flow Rate (Q) จาก Q_max ที่ผู้ใช้กรอก ---
             let flowVal = (Q_max * k * C_pipe).toFixed(2);
             let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
 
@@ -533,18 +533,18 @@
             let hzVal = "50.0";
             let currentVal, kwVal;
 
-            // --- คำนวณ Current (A) และ Power (kW) ---
+            // --- คำนวณ Current (A) และ Power (kW) จาก A_rated ที่ผู้ใช้กรอก ---
             if (isStartingTransient) {
-                // ช่วงกระชาก 2 วินาทีแรก
+                // ช่วงกระชาก 2 วินาทีแรกเมื่อกด START
                 let M_start = 6;
-                let A_start = A_rated * M_start; // กระแสกระชากตามค่าที่ผู้ใช้กรอก x 6
+                let A_start = A_rated * M_start; // กระแสกระชาก = A_rated x 6
                 let PF_start = 0.50;
                 let kW_start = (Volt * A_start * PF_start) / 1000;
 
                 currentVal = A_start.toFixed(2);
                 kwVal = kW_start.toFixed(2);
             } else {
-                // สภาวะปกติ
+                // สภาวะปกติหลังพ้น 2 วินาที
                 let A_normal = A_no_load + ((A_rated - A_no_load) * k);
                 let kW_normal = (Volt * A_normal * PF) / 1000;
 
