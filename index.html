@@ -501,9 +501,13 @@
             updateDisplayValues(currentRange);
 
             // ========================================================
-            // 🔥 สูตรคำนวณที่ถูกต้อง:
-            // 1. Flow Rate (Q) = Q_max * k * C_pipe (คูณ C_pipe ตามขนาดท่อ: 3"=1.00, 4"=1.15, 6"=1.35)
-            // 2. Pressure (P) = [P_max - ((P_max - P_min) * k^2)] / C_pipe (หาร C_pipe ตามขนาดท่อ)
+            // 🔥 สูตรคำนวณที่ถูกต้องตามหลัก Excel & วิศวกรรม:
+            // 1. Flow Rate (Q) = Q_max * k * C_pipe
+            // 2. Pressure (P) = [P_max - ((P_max - P_min) * k^2)] / C_pipe
+            // 3. Current Working (A) = A_noload + [(A_rated - A_noload) * k * C_pipe]
+            // 4. Working Power (kW) = (220 * A * PF) / 1000
+            // 5. Inrush Start Current (A_start) = A * 6
+            // 6. Inrush Start Power (kW_start) = (220 * A_start * PF) / 1000
             // ========================================================
             let rawFlow = document.getElementById('pumpFlow').value;
             let rawCurrent = document.getElementById('inputCurrent').value;
@@ -511,17 +515,17 @@
             let Q_max = parseFloat(rawFlow) || 15.00;     // ดึงค่า Flow จาก PUMP DETAIL
             let A_rated = parseFloat(rawCurrent) || 9.60;  // กระแสพิกัด
 
-            let k = currentRange / 100.0;                  // สัดส่วน k
+            let k = currentRange / 100.0;                  // สัดส่วน k (0.0 ถึง 1.0)
             
             // กำหนดค่า C_pipe ตามขนาดท่อที่เลือก
             let C_pipe = 1.00;
             if (activePipe === "4") C_pipe = 1.15;
             if (activePipe === "6") C_pipe = 1.35;
 
-            // --- 1. คำนวณ Flow Rate (Q) คูณด้วย C_pipe ---
+            // --- 1. คำนวณ Flow Rate (Q) ---
             let flowVal = (Q_max * k * C_pipe).toFixed(2);
 
-            // --- 2. คำนวณ Pressure (P) หารด้วย C_pipe ---
+            // --- 2. คำนวณ Pressure (P) ---
             let P_max = 3.20;  // bar 
             let P_min = 1.50;  // bar 
             let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
@@ -534,23 +538,22 @@
             let hzVal = "50.0";
             let currentVal, kwVal;
 
-            // --- 3. คำนวณ Current (A) และ Power (kW) ---
-            let A_no_load = A_rated * 0.60; 
+            // --- 3. คำนวณ Current (A) และ Power (kW) แบบ Dynamic ตาม % วาล์วและขนาดท่อ ---
+            let A_noload = A_rated * 0.60; 
             let Volt = 220;
             let PF = 0.85;
 
             if (isStartingTransient) {
-                // ช่วงกระชาก 2 วินาทีแรกเมื่อกด START
-                let M_start = 6;
-                let A_start = A_rated * M_start; 
-                let PF_start = 0.85;
-                let kW_start = (Volt * A_start * PF_start) / 1000;
+                // ช่วงกระชาก 2 วินาทีแรกเมื่อกด START (A_start = A_working * 6)
+                let A_working_temp = A_noload + ((A_rated - A_noload) * k * C_pipe);
+                let A_start = A_working_temp * 6; 
+                let kW_start = (Volt * A_start * PF) / 1000;
 
                 currentVal = A_start.toFixed(2);
                 kwVal = kW_start.toFixed(2);
             } else {
-                // สภาวะปกติ: A = A_no_load + [(A_rated - A_no_load) * k]
-                let A_normal = A_no_load + ((A_rated - A_no_load) * k);
+                // สภาวะทำงานปกติ: A = A_noload + [(A_rated - A_noload) * k * C_pipe]
+                let A_normal = A_noload + ((A_rated - A_noload) * k * C_pipe);
                 let kW_normal = (Volt * A_normal * PF) / 1000;
 
                 currentVal = A_normal.toFixed(2);
