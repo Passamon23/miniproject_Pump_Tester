@@ -217,7 +217,7 @@
 
         <!-- PUMP DETAIL Inputs -->
         <input type="text" class="scada-input input-brand" id="brandInput" placeholder="Input brand...">
-        <input type="text" class="scada-input input-voltage" id="inputVoltage" value="220 V" readonly>
+        <input type="text" class="scada-input input-voltage" id="inputVoltage" value="220" readonly>
         <input type="text" class="scada-input input-hp" id="pumpHp" placeholder="Enter HP value...">
         <input type="text" class="scada-input input-flow" id="pumpFlow" placeholder="Enter Flow Rate...">
         <input type="text" class="scada-input input-remark" id="inputRemark" placeholder="Enter remark here...">
@@ -487,7 +487,7 @@
             let activePipe = document.getElementById('pipeSize').value;
             let hp = document.getElementById('mdbHp').value;
             let range = document.getElementById('testRange').value;
-            alert(`[APPLY สำเร็จ] บันทึกค่าขนาดท่อ : ${activePipe} นิ้ว , MDB HP : ${hp}, ช่วงทดสอบ : ${range}%`);
+            alert(`[APPLY สำเร็จ] บันทึกค่าขนาดท่อ : ${activePipe} นิ้ว , MDB HP : ${hp} , ช่วงทดสอบ : ${range}%`);
         }
 
         function executeTestStep(currentRange) {
