@@ -217,8 +217,8 @@
 
         <!-- PUMP DETAIL Inputs -->
         <input type="text" class="scada-input input-brand" id="brandInput" placeholder="Input brand...">
-        <input type="text" class="scada-input input-voltage" id="inputVoltage" value="220" readonly>
-        <input type="text" class="scada-input input-hp" id="pumpHp" placeholder="Enter HP value...">
+        <input type="text" class="scada-input input-voltage" id="inputVoltage" value="220 V" readonly>
+        <input type="text" class="scada-input input-hp" id="pumpHp" placeholder="Enter HP value (e.g. 2)...">
         <input type="text" class="scada-input input-flow" id="pumpFlow" placeholder="Enter Flow Rate...">
         <input type="text" class="scada-input input-remark" id="inputRemark" placeholder="Enter remark here...">
 
@@ -379,6 +379,15 @@
         let isStartingTransient = false;
         let isTestRunning = false;
 
+        // ข้อมูลสเปกมาตรฐานของปั๊มแต่ละขนาด (HP Specs Database)
+        const pumpSpecs = {
+            "1": { qMax: 9.50, aRated: 5.20 },
+            "2": { qMax: 15.00, aRated: 9.60 },
+            "3": { qMax: 21.00, aRated: 14.00 },
+            "4": { qMax: 25.50, aRated: 18.50 },
+            "5": { qMax: 30.00, aRated: 23.00 }
+        };
+
         // เปิด/ปิด หน้าต่าง Modal PLC
         function openPlcModal() { document.getElementById('plcModal').style.display = 'flex'; }
         function closePlcModal() { document.getElementById('plcModal').style.display = 'none'; }
@@ -483,11 +492,53 @@
             updatePlcRegisters(false, 0, "-", "-", 0);
         });
 
+        // ตรวจสอบความถูกต้องของข้อมูล (Validation) ระหว่าง MDB HP กับ Pump Detail HP & Flow Rate
+        function validatePumpInputs() {
+            let mdbHpVal = document.getElementById('mdbHp').value;
+            let inputHpVal = document.getElementById('pumpHp').value.trim();
+            let inputFlowVal = parseFloat(document.getElementById('pumpFlow').value);
+            let inputCurrentVal = parseFloat(document.getElementById('inputCurrent').value);
+
+            // 1. ตรวจสอบว่า HP มุมขวาบน และ ซ้ายล่างตรงกันหรือไม่
+            if (inputHpVal !== mdbHpVal) {
+                alert(`[ERROR] ข้อมูล HP ไม่ตรงกัน!\n- MDB Status (ขวาบน): ${mdbHpVal} HP\n- Pump Detail (ซ้ายล่าง): ${inputHpVal || 'ยังไม่ได้ระบุ'} HP\nกรุณาแก้ไขข้อมูล HP ให้ตรงกันก่อนเริ่มทดสอบ`);
+                return false;
+            }
+
+            // 2. ตรวจสอบว่า HP มีอยู่ในระบบสเปกมาตรฐานหรือไม่
+            if (!pumpSpecs[mdbHpVal]) {
+                alert(`[ERROR] ไม่พบข้อมูลสเปกสำหรับขนาด ${mdbHpVal} HP`);
+                return false;
+            }
+
+            let expectedSpec = pumpSpecs[mdbHpVal];
+
+            // 3. ตรวจสอบ Flow Rate (Q_max) และ Current (A_rated) ว่าตรงกับสเปกของ HP นั้นๆ หรือไม่
+            if (Math.abs(inputFlowVal - expectedSpec.qMax) > 0.01) {
+                alert(`[ERROR] Flow Rate ไม่ถูกต้องสำหรับปั๊มขนาด ${mdbHpVal} HP!\n- ค่าที่ถูกต้องสำหรับ ${mdbHpVal} HP คือ Q_max = ${expectedSpec.qMax.toFixed(2)} m³/h\n- ค่าที่คุณกรอกคือ: ${inputFlowVal || 0} m³/h\nกรุณาแก้ไขให้ถูกต้อง`);
+                return false;
+            }
+
+            if (Math.abs(inputCurrentVal - expectedSpec.aRated) > 0.01) {
+                alert(`[ERROR] กระแสไฟฟ้าพิกัด (Current) ไม่ถูกต้องสำหรับปั๊มขนาด ${mdbHpVal} HP!\n- ค่าที่ถูกต้องสำหรับ ${mdbHpVal} HP คือ A_rated = ${expectedSpec.aRated.toFixed(2)} A\n- ค่าที่คุณกรอกคือ: ${inputCurrentVal || 0} A\nกรุณาแก้ไขให้ถูกต้อง`);
+                return false;
+            }
+
+            return true;
+        }
+
         function applySettings() {
             let activePipe = document.getElementById('pipeSize').value;
             let hp = document.getElementById('mdbHp').value;
             let range = document.getElementById('testRange').value;
-            alert(`[APPLY สำเร็จ] บันทึกค่าขนาดท่อ : ${activePipe} นิ้ว , MDB HP : ${hp} , ช่วงทดสอบ : ${range}%`);
+
+            // ตรวจสอบความถูกต้องเบื้องต้นเมื่อกด APPLY
+            let inputHpVal = document.getElementById('pumpHp').value.trim();
+            if (inputHpVal !== "" && inputHpVal !== hp) {
+                alert(`[เตือน] ค่า HP ระหว่าง MDB Status (${hp} HP) และ Pump Detail (${inputHpVal} HP) ไม่ตรงกัน! ระบบจะไม่อนุญาตให้กด START TEST จนกว่าจะแก้ไขให้ตรงกัน`);
+            } else {
+                alert(`[APPLY สำเร็จ] บันทึกค่าขนาดท่อ : ${activePipe} นิ้ว , MDB HP : ${hp}, ช่วงทดสอบ : ${range}%`);
+            }
         }
 
         function executeTestStep(currentRange) {
@@ -500,24 +551,14 @@
 
             updateDisplayValues(currentRange);
 
-            // ========================================================
-            // 🔥 สูตรคำนวณที่ถูกต้องตามหลัก Excel & วิศวกรรม:
-            // 1. Flow Rate (Q) = Q_max * k * C_pipe
-            // 2. Pressure (P) = [P_max - ((P_max - P_min) * k^2)] / C_pipe
-            // 3. Current Working (A) = A_noload + [(A_rated - A_noload) * k * C_pipe]
-            // 4. Working Power (kW) = (220 * A * PF) / 1000
-            // 5. Inrush Start Current (A_start) = A * 6
-            // 6. Inrush Start Power (kW_start) = (220 * A_start * PF) / 1000
-            // ========================================================
             let rawFlow = document.getElementById('pumpFlow').value;
             let rawCurrent = document.getElementById('inputCurrent').value;
 
-            let Q_max = parseFloat(rawFlow) || 15.00;     // ดึงค่า Flow จาก PUMP DETAIL
-            let A_rated = parseFloat(rawCurrent) || 9.60;  // กระแสพิกัด
+            let Q_max = parseFloat(rawFlow) || 15.00;     
+            let A_rated = parseFloat(rawCurrent) || 9.60;  
 
-            let k = currentRange / 100.0;                  // สัดส่วน k (0.0 ถึง 1.0)
+            let k = currentRange / 100.0;                  
             
-            // กำหนดค่า C_pipe ตามขนาดท่อที่เลือก
             let C_pipe = 1.00;
             if (activePipe === "4") C_pipe = 1.15;
             if (activePipe === "6") C_pipe = 1.35;
@@ -526,11 +567,10 @@
             let flowVal = (Q_max * k * C_pipe).toFixed(2);
 
             // --- 2. คำนวณ Pressure (P) ---
-            let P_max = 3.20;  // bar 
-            let P_min = 1.50;  // bar 
+            let P_max = 3.20;  
+            let P_min = 1.50;  
             let pressVal = ((P_max - ((P_max - P_min) * (k * k))) / C_pipe).toFixed(2);
 
-            // แสดงผลลงในช่องหน้าจอของท่อที่ active อยู่
             document.getElementById(`flow${activePipe}`).innerText = flowVal;
             document.getElementById(`press${activePipe}`).innerText = pressVal;
 
@@ -538,13 +578,12 @@
             let hzVal = "50.0";
             let currentVal, kwVal;
 
-            // --- 3. คำนวณ Current (A) และ Power (kW) แบบ Dynamic ตาม % วาล์วและขนาดท่อ ---
+            // --- 3. คำนวณ Current (A) และ Power (kW) ---
             let A_noload = A_rated * 0.60; 
             let Volt = 220;
             let PF = 0.85;
 
             if (isStartingTransient) {
-                // ช่วงกระชาก 2 วินาทีแรกเมื่อกด START (A_start = A_working * 6)
                 let A_working_temp = A_noload + ((A_rated - A_noload) * k * C_pipe);
                 let A_start = A_working_temp * 6; 
                 let kW_start = (Volt * A_start * PF) / 1000;
@@ -552,7 +591,6 @@
                 currentVal = A_start.toFixed(2);
                 kwVal = kW_start.toFixed(2);
             } else {
-                // สภาวะทำงานปกติ: A = A_noload + [(A_rated - A_noload) * k * C_pipe]
                 let A_normal = A_noload + ((A_rated - A_noload) * k * C_pipe);
                 let kW_normal = (Volt * A_normal * PF) / 1000;
 
@@ -565,7 +603,6 @@
             document.getElementById('pmA').innerText = currentVal;
             document.getElementById('pmKw').innerText = kwVal;
 
-            // อัปเดตข้อมูลลงตาราง PLC Register ทันที
             updatePlcRegisters(true, currentRange, flowVal, pressVal, currentVal);
         }
 
@@ -601,6 +638,11 @@
                 return; 
             }
 
+            // ตรวจสอบความถูกต้องของสเปกและ HP ทั้งสองจุดก่อนสตาร์ท
+            if (!validatePumpInputs()) {
+                return; // หยุดการทำงานทันทีหากข้อมูลไม่ถูกต้อง
+            }
+
             clearAllTestTimers();
 
             document.getElementById('startBtn').classList.add('btn-clicked');
@@ -613,17 +655,14 @@
             isTestRunning = true;
             let currentRange = startRange;
 
-            // 1. เริ่มแสดงค่ากระชาก 2 วินาทีแรกเมื่อกด START
             isStartingTransient = true;
             executeTestStep(currentRange);
 
-            // 2. เมื่อครบ 2 วินาที ตัดเข้าสู่ค่าปกติ และเริ่มนับเวลา Timer
             startTransientTimeout = setTimeout(() => {
                 if (!isTestRunning) return;
                 isStartingTransient = false;
-                executeTestStep(currentRange); // แสดงค่าปกติสำหรับ Step แรก
+                executeTestStep(currentRange); 
 
-                // ฟังก์ชันรัน Step ถัดไปเรื่อยๆ ตาม Resolution และ Timer Normal
                 function runNextStep() {
                     testTimeout = setTimeout(() => {
                         if (!isTestRunning) return;
@@ -647,7 +686,7 @@
                     isTestRunning = false;
                 }
 
-            }, 2000); // ช่วงกระชากค้างไว้ 2 วินาที
+            }, 2000); 
         }
 
         function stopTest() {
@@ -676,7 +715,6 @@
             document.getElementById('pmA').innerText = "-";
             document.getElementById('pmKw').innerText = "-";
 
-            // อัปเดตสถานะ PLC กลับเป็น Standby
             updatePlcRegisters(false, 0, "-", "-", 0);
 
             alert('[STOP TEST] ระบบหยุดการทำงานแล้ว คุณสามารถเลือกเปลี่ยนขนาดท่อใหม่ กด APPLY และกด START TEST ได้เลยค่ะ/ครับ');
